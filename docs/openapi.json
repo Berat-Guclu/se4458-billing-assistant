@@ -1,0 +1,1014 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Mobile Provider Billing API",
+    "description": "Versioned billing operations for the SE4458 Group 2 assistant. Call these routes through the API gateway. Money is simulated USD. 1 GB = 1,000 MB. Phone: the first 1,000 minutes are free, then $10 per started 1,000-minute block. Internet: $50 up to 20 GB, then $10 per started additional 10 GB block.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8088",
+      "description": "API Gateway"
+    },
+    {
+      "url": "http://localhost:18000",
+      "description": "Billing API direct (debug only)"
+    }
+  ],
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Login",
+        "description": "Issue a JWT for a subscriber or admin. The gateway does not require a token here.",
+        "operationId": "login_api_v1_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/usage": {
+      "post": {
+        "tags": [
+          "Usage"
+        ],
+        "summary": "Create Usage",
+        "description": "Add 10 phone minutes or 1 MB of internet for one month. Requires a JWT.",
+        "operationId": "create_usage_api_v1_usage_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bills": {
+      "get": {
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Get Bill",
+        "description": "Return the calculated bill summary. Authentication is not required for this operation.",
+        "operationId": "get_bill_api_v1_bills_get",
+        "parameters": [
+          {
+            "name": "subscriberNo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "title": "Subscriberno"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Month"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryBillOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bills/detailed": {
+      "get": {
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Get Bill Detailed",
+        "description": "Return usage and the charge breakdown. Requires a JWT and is paged.",
+        "operationId": "get_bill_detailed_api_v1_bills_detailed_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subscriberNo",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32,
+              "title": "Subscriberno"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "title": "Month"
+            }
+          },
+          {
+            "name": "year",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "maximum": 2100,
+              "minimum": 2000,
+              "title": "Year"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 10,
+              "title": "Pagesize"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetailedOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bills/calculate": {
+      "post": {
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Post Calculate",
+        "description": "Price the stored usage for a month and save the bill. Requires a JWT.",
+        "operationId": "post_calculate_api_v1_bills_calculate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/bills/pay": {
+      "post": {
+        "tags": [
+          "Bills"
+        ],
+        "summary": "Post Pay",
+        "description": "Record a simulated partial or full payment. Requires a JWT. No card is charged.",
+        "operationId": "post_pay_api_v1_bills_pay_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PayIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PayOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CalculateIn": {
+        "properties": {
+          "subscriberNo": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 2100.0,
+            "minimum": 2000.0,
+            "title": "Year"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriberNo",
+          "month",
+          "year"
+        ],
+        "title": "CalculateIn"
+      },
+      "CalculateOut": {
+        "properties": {
+          "transactionStatus": {
+            "type": "string",
+            "title": "Transactionstatus"
+          },
+          "subscriberNo": {
+            "type": "string",
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "billTotal": {
+            "type": "number",
+            "title": "Billtotal"
+          },
+          "paidAmount": {
+            "type": "number",
+            "title": "Paidamount"
+          },
+          "remainingBalance": {
+            "type": "number",
+            "title": "Remainingbalance"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "charges": {
+            "$ref": "#/components/schemas/ChargeBreakdown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transactionStatus",
+          "subscriberNo",
+          "month",
+          "year",
+          "currency",
+          "billTotal",
+          "paidAmount",
+          "remainingBalance",
+          "status",
+          "charges"
+        ],
+        "title": "CalculateOut"
+      },
+      "ChargeBreakdown": {
+        "properties": {
+          "phoneMinutes": {
+            "type": "integer",
+            "title": "Phoneminutes"
+          },
+          "phoneBlocks": {
+            "type": "integer",
+            "title": "Phoneblocks"
+          },
+          "phoneCharge": {
+            "type": "number",
+            "title": "Phonecharge"
+          },
+          "internetMb": {
+            "type": "integer",
+            "title": "Internetmb"
+          },
+          "internetGb": {
+            "type": "number",
+            "title": "Internetgb"
+          },
+          "internetBaseCharge": {
+            "type": "number",
+            "title": "Internetbasecharge"
+          },
+          "internetExtraBlocks": {
+            "type": "integer",
+            "title": "Internetextrablocks"
+          },
+          "internetExtraCharge": {
+            "type": "number",
+            "title": "Internetextracharge"
+          },
+          "internetCharge": {
+            "type": "number",
+            "title": "Internetcharge"
+          }
+        },
+        "type": "object",
+        "required": [
+          "phoneMinutes",
+          "phoneBlocks",
+          "phoneCharge",
+          "internetMb",
+          "internetGb",
+          "internetBaseCharge",
+          "internetExtraBlocks",
+          "internetExtraCharge",
+          "internetCharge"
+        ],
+        "title": "ChargeBreakdown"
+      },
+      "DetailedOut": {
+        "properties": {
+          "subscriberNo": {
+            "type": "string",
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "billTotal": {
+            "type": "number",
+            "title": "Billtotal"
+          },
+          "paidAmount": {
+            "type": "number",
+            "title": "Paidamount"
+          },
+          "remainingBalance": {
+            "type": "number",
+            "title": "Remainingbalance"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "charges": {
+            "$ref": "#/components/schemas/ChargeBreakdown"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsagePage"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriberNo",
+          "month",
+          "year",
+          "currency",
+          "billTotal",
+          "paidAmount",
+          "remainingBalance",
+          "status",
+          "charges",
+          "usage"
+        ],
+        "title": "DetailedOut"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "LoginIn": {
+        "properties": {
+          "subscriberNo": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Subscriberno"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriberNo",
+          "password"
+        ],
+        "title": "LoginIn"
+      },
+      "PayIn": {
+        "properties": {
+          "subscriberNo": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 2100.0,
+            "minimum": 2000.0,
+            "title": "Year"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Amount"
+          },
+          "transactionId": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._:-]+$",
+            "title": "Transactionid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriberNo",
+          "month",
+          "year",
+          "amount",
+          "transactionId"
+        ],
+        "title": "PayIn"
+      },
+      "PayOut": {
+        "properties": {
+          "paymentStatus": {
+            "type": "string",
+            "title": "Paymentstatus"
+          },
+          "billStatus": {
+            "type": "string",
+            "title": "Billstatus"
+          },
+          "subscriberNo": {
+            "type": "string",
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "amountApplied": {
+            "type": "number",
+            "title": "Amountapplied"
+          },
+          "paidAmount": {
+            "type": "number",
+            "title": "Paidamount"
+          },
+          "remainingBalance": {
+            "type": "number",
+            "title": "Remainingbalance"
+          },
+          "transactionId": {
+            "type": "string",
+            "title": "Transactionid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "paymentStatus",
+          "billStatus",
+          "subscriberNo",
+          "month",
+          "year",
+          "currency",
+          "amountApplied",
+          "paidAmount",
+          "remainingBalance",
+          "transactionId"
+        ],
+        "title": "PayOut"
+      },
+      "QueryBillOut": {
+        "properties": {
+          "subscriberNo": {
+            "type": "string",
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          },
+          "billTotal": {
+            "type": "number",
+            "title": "Billtotal"
+          },
+          "paidAmount": {
+            "type": "number",
+            "title": "Paidamount"
+          },
+          "remainingBalance": {
+            "type": "number",
+            "title": "Remainingbalance"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriberNo",
+          "month",
+          "year",
+          "currency",
+          "billTotal",
+          "paidAmount",
+          "remainingBalance",
+          "status"
+        ],
+        "title": "QueryBillOut"
+      },
+      "TokenOut": {
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "title": "Accesstoken"
+          },
+          "tokenType": {
+            "type": "string",
+            "title": "Tokentype"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "title": "Expiresin"
+          },
+          "subscriberNo": {
+            "type": "string",
+            "title": "Subscriberno"
+          },
+          "fullName": {
+            "type": "string",
+            "title": "Fullname"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "accessToken",
+          "tokenType",
+          "expiresIn",
+          "subscriberNo",
+          "fullName",
+          "role"
+        ],
+        "title": "TokenOut"
+      },
+      "UsageIn": {
+        "properties": {
+          "subscriberNo": {
+            "type": "string",
+            "maxLength": 32,
+            "minLength": 1,
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "maximum": 2100.0,
+            "minimum": 2000.0,
+            "title": "Year"
+          },
+          "usageType": {
+            "type": "string",
+            "maxLength": 16,
+            "minLength": 1,
+            "title": "Usagetype"
+          }
+        },
+        "type": "object",
+        "required": [
+          "subscriberNo",
+          "month",
+          "year",
+          "usageType"
+        ],
+        "title": "UsageIn"
+      },
+      "UsageItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "usageType": {
+            "type": "string",
+            "title": "Usagetype"
+          },
+          "quantity": {
+            "type": "integer",
+            "title": "Quantity"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "usageType",
+          "quantity",
+          "unit",
+          "createdAt"
+        ],
+        "title": "UsageItem"
+      },
+      "UsageOut": {
+        "properties": {
+          "transactionStatus": {
+            "type": "string",
+            "title": "Transactionstatus"
+          },
+          "subscriberNo": {
+            "type": "string",
+            "title": "Subscriberno"
+          },
+          "month": {
+            "type": "integer",
+            "title": "Month"
+          },
+          "year": {
+            "type": "integer",
+            "title": "Year"
+          },
+          "usageType": {
+            "type": "string",
+            "title": "Usagetype"
+          },
+          "addedQuantity": {
+            "type": "integer",
+            "title": "Addedquantity"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "periodPhoneMinutes": {
+            "type": "integer",
+            "title": "Periodphoneminutes"
+          },
+          "periodInternetMb": {
+            "type": "integer",
+            "title": "Periodinternetmb"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transactionStatus",
+          "subscriberNo",
+          "month",
+          "year",
+          "usageType",
+          "addedQuantity",
+          "unit",
+          "periodPhoneMinutes",
+          "periodInternetMb"
+        ],
+        "title": "UsageOut"
+      },
+      "UsagePage": {
+        "properties": {
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "pageSize": {
+            "type": "integer",
+            "title": "Pagesize"
+          },
+          "totalItems": {
+            "type": "integer",
+            "title": "Totalitems"
+          },
+          "totalPages": {
+            "type": "integer",
+            "title": "Totalpages"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UsageItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "page",
+          "pageSize",
+          "totalItems",
+          "totalPages",
+          "items"
+        ],
+        "title": "UsagePage"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  }
+}

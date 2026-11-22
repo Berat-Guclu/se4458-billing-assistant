@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mobile Provider Billing Assistant</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #14242b;
+      --muted: #5d6f76;
+      --line: #d5e0e3;
+      --teal: #0c5c56;
+      --teal-deep: #083f3b;
+      --mint: #e7f6f2;
+      --paper: #f4f7f6;
+      --card: #ffffff;
+      --danger: #9f1239;
+      --gold: #8a5a12;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(900px 420px at 0% -10%, #d7efe9 0%, transparent 55%),
+        radial-gradient(700px 380px at 100% 0%, #e7eef6 0%, transparent 50%),
+        var(--paper);
+      font: 16px/1.5 "Avenir Next", "Segoe UI", sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible, input:focus-visible {
+      outline: 3px solid #8fd0c6;
+      outline-offset: 2px;
+    }
+    .app { min-height: 100%; display: flex; flex-direction: column; }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 22px;
+      background: var(--teal-deep);
+      color: white;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand svg { flex: 0 0 auto; }
+    header h1 { margin: 0; font-size: 1.15rem; font-weight: 650; letter-spacing: -0.02em; }
+    header p { margin: 0; color: #c9e4df; font-size: 0.86rem; }
+    .session { display: flex; align-items: center; gap: 10px; }
+    .session.hidden { display: none; }
+    .tool-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      color: white;
+      font-size: 0.86rem;
+      letter-spacing: 0;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 999px;
+      padding: 6px 12px 6px 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .tool-toggle input { width: 16px; height: 16px; margin: 0; accent-color: #9ee7df; cursor: pointer; }
+    .who {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      line-height: 1.2;
+    }
+    .who strong { font-size: 0.95rem; }
+    .who span { color: #b7d8d2; font-size: 0.78rem; }
+    .ghost, .send, .account, .chip {
+      border: 0;
+      border-radius: 999px;
+    }
+    .ghost {
+      background: transparent;
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      padding: 8px 12px;
+      white-space: nowrap;
+    }
+    .ghost:hover { background: rgba(255, 255, 255, 0.08); }
+    main {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      min-height: 0;
+      padding: 22px 16px 18px;
+    }
+    .panel {
+      align-self: center;
+      width: min(520px, 100%);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 26px 24px 20px;
+      box-shadow: 0 18px 50px rgba(16, 42, 46, 0.08);
+    }
+    .panel h2 { margin: 0 0 6px; font-size: 1.55rem; letter-spacing: -0.03em; }
+    .lede { margin: 0 0 18px; color: var(--muted); }
+    label { display: block; margin: 0 0 6px; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.04em; }
+    input {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fbfcfc;
+      border-radius: 12px;
+      padding: 12px 13px;
+    }
+    .fields { display: grid; gap: 12px; }
+    .signin {
+      margin-top: 14px;
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: var(--teal);
+      color: white;
+      font-weight: 650;
+    }
+    .signin:hover { background: #0a4e49; }
+    .error { display: block; min-height: 1.2em; margin-top: 8px; color: var(--danger); }
+    .accounts { display: grid; gap: 8px; margin-top: 8px; }
+    .account {
+      text-align: left;
+      background: #f6faf9;
+      color: var(--ink);
+      border-radius: 14px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .account:hover { background: var(--mint); }
+    .account strong { font-size: 0.95rem; }
+    .account span { color: var(--muted); font-size: 0.82rem; }
+    .hint { margin: 16px 0 8px; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.04em; }
+    .chat {
+      width: min(780px, 100%);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      background: transparent;
+    }
+    .hidden { display: none !important; }
+    .banner {
+      margin: 14px 16px 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #fff6e4;
+      color: var(--gold);
+      border: 1px solid #f0ddb4;
+    }
+    .log { flex: 1; overflow: auto; padding: 22px 4px 8px; }
+    .welcome {
+      margin: 12px auto 0;
+      max-width: 460px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .welcome strong { display: block; color: var(--ink); font-size: 1.15rem; margin-bottom: 4px; }
+    .msg { display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; }
+    .msg.user { justify-content: flex-end; }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      background: #d7ebe6;
+      color: var(--teal-deep);
+      font-size: 0.72rem;
+      font-weight: 750;
+    }
+    .bubble-wrap { max-width: min(560px, 82%); display: flex; flex-direction: column; }
+    .msg.user .bubble-wrap { align-items: flex-end; }
+    .bubble {
+      border-radius: 18px;
+      padding: 10px 14px;
+      white-space: pre-wrap;
+    }
+    .user .bubble { background: var(--teal); color: white; border-bottom-right-radius: 4px; }
+    .assistant .bubble {
+      background: white;
+      border: 1px solid var(--line);
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 1px 1px rgba(16, 42, 46, 0.04);
+    }
+    .thinking .bubble { color: var(--muted); }
+    .thinking .bubble::after { content: ""; animation: dots 1.1s steps(4, end) infinite; }
+    @keyframes dots { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+    .trace { display: none; margin-top: 8px; gap: 8px; width: 100%; }
+    .chat.show-tools .trace { display: grid; }
+    .trace-title { color: var(--muted); font-size: 0.72rem; letter-spacing: 0.06em; }
+    .step {
+      background: #f8fbfb;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 10px;
+    }
+    .step-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .pill {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .pill.llm { background: #ece7f8; color: #53358a; }
+    .pill.mcp { background: #e5f4ea; color: #17663a; }
+    .pill.gateway { background: #e7f1fb; color: #1d4f86; }
+    .tool-name { color: var(--muted); font-size: 0.82rem; }
+    .step pre {
+      margin: 0;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      font: 12.5px/1.45 ui-monospace, "SF Mono", Menlo, monospace;
+      max-height: 220px;
+      overflow: auto;
+    }
+    .dock {
+      padding: 10px 0 16px;
+      background: linear-gradient(transparent, var(--paper) 14px);
+    }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    .chip { background: white; color: var(--ink); border: 1px solid var(--line); padding: 7px 11px; }
+    .chip:hover { border-color: #8ec4bb; background: var(--mint); }
+    .composer { display: flex; gap: 8px; }
+    .composer input { flex: 1; margin: 0; background: white; border-radius: 999px; padding: 12px 16px; }
+    .send { background: var(--teal); color: white; padding: 0 18px; font-weight: 650; }
+    .send:hover { background: #0a4e49; }
+    .send:disabled, .chip:disabled { opacity: 0.55; cursor: default; }
+    @media (max-width: 700px) {
+      header { align-items: center; }
+      header p { display: none; }
+      .who { display: none; }
+      main { padding: 12px; }
+      .panel, .chat { border-radius: 16px; }
+      .tool-toggle span { display: none; }
+      .tool-toggle::after { content: "Tools"; }
+      .composer { flex-direction: column; }
+      .send { padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">
+        <svg viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">
+          <rect x="3" y="5" width="26" height="22" rx="5" fill="none" stroke="white" stroke-width="2"/>
+          <path d="M8 13h16M8 18h10" stroke="#9ee7df" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div>
+          <h1>Billing Assistant</h1>
+          <p>Mobile provider · no real card is charged</p>
+        </div>
+      </div>
+      <div id="session" class="session hidden">
+        <label class="tool-toggle" for="show-tools">
+          <input id="show-tools" type="checkbox">
+          <span>Show agent tools</span>
+        </label>
+        <div class="who">
+          <strong id="who-name"></strong>
+          <span id="who-number"></span>
+        </div>
+        <button id="logout-btn" class="ghost" type="button">Sign out</button>
+      </div>
+    </header>
+    <main>
+      <section id="login-card" class="panel">
+        <h2>Sign in</h2>
+        <p class="lede">Look up a rule, a bill, or prepare a payment. The assistant only uses the subscriber you sign in as.</p>
+        <div class="fields">
+          <div>
+            <label for="subscriber">SUBSCRIBER</label>
+            <input id="subscriber" value="5551001" autocomplete="username">
+          </div>
+          <div>
+            <label for="password">PASSWORD</label>
+            <input id="password" type="password" value="demo123" autocomplete="current-password">
+          </div>
+        </div>
+        <button id="login-btn" class="signin" type="button">Sign in</button>
+        <span id="login-error" class="error"></span>
+        <div class="hint">DEMO ACCOUNTS</div>
+        <div class="accounts">
+          <button class="account" type="button" data-sub="5551001" data-pass="demo123">
+            <strong>Ece Yilmaz</strong>
+            <span>5551001 · 3 years of bills, October 2025 $70 unpaid</span>
+          </button>
+          <button class="account" type="button" data-sub="5551002" data-pass="demo123">
+            <strong>Kerem Acar</strong>
+            <span>5551002 · 3 years of bills, April 2025 partial</span>
+          </button>
+          <button class="account" type="button" data-sub="5551999" data-pass="admin123">
+            <strong>Billing Admin</strong>
+            <span>5551999 · admin123</span>
+          </button>
+        </div>
+      </section>
+
+      <section id="chat-card" class="chat hidden">
+        <div id="pending" class="banner hidden"></div>
+        <div id="log" class="log"></div>
+        <div class="dock">
+          <div class="chips" id="chips"></div>
+          <form id="composer" class="composer">
+            <label class="hidden" for="message">Question</label>
+            <input id="message" placeholder="Ask about a rule, a bill, or a payment" autocomplete="off">
+            <button class="send" type="submit">Send</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const prompts = [
+      ["Extra data price", "How much does extra internet cost?"],
+      ["October bill", "What is my October bill?"],
+      ["Why October is higher", "Why is my October bill higher than September?"],
+      ["Pay October", "Pay my October bill"]
+    ];
+    const state = { token: "", name: "", subscriber: "", history: [], busy: false };
+
+    const loginCard = document.querySelector("#login-card");
+    const chatCard = document.querySelector("#chat-card");
+    const sessionBar = document.querySelector("#session");
+    const log = document.querySelector("#log");
+    const pending = document.querySelector("#pending");
+    const chips = document.querySelector("#chips");
+    const sendButton = document.querySelector(".send");
+    const toolsToggle = document.querySelector("#show-tools");
+
+    toolsToggle.addEventListener("change", () => {
+      chatCard.classList.toggle("show-tools", toolsToggle.checked);
+    });
+
+    prompts.forEach(([label, text]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "chip";
+      button.textContent = label;
+      button.addEventListener("click", () => ask(text));
+      chips.appendChild(button);
+    });
+
+    function pretty(value) {
+      if (typeof value === "string") {
+        try { return JSON.stringify(JSON.parse(value), null, 2); } catch (error) { return value; }
+      }
+      return JSON.stringify(value, null, 2);
+    }
+
+    function formatTrace(step) {
+      if (step.via === "llm") return step.result;
+      const input = pretty(step.input);
+      const result = pretty(step.result);
+      return input && input !== "{}" ? input + "\n" + result : result;
+    }
+
+    function esc(value) {
+      return String(value).replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+      }[ch]));
+    }
+
+    function showError(id, error) {
+      const node = document.querySelector(id);
+      const detail = error && error.detail ? error.detail : error;
+      node.textContent = typeof detail === "string" ? detail : JSON.stringify(detail);
+    }
+
+    function setBusy(busy) {
+      state.busy = busy;
+      sendButton.disabled = busy;
+      chips.querySelectorAll("button").forEach((button) => { button.disabled = busy; });
+    }
+
+    function showWelcome() {
+      log.innerHTML = "";
+      const note = document.createElement("div");
+      note.className = "welcome";
+      note.innerHTML = "<strong>What can I look up?</strong>Pricing rules, your bill, or a payment. A payment is recorded only after you reply CONFIRM.";
+      log.appendChild(note);
+    }
+
+    async function login() {
+      document.querySelector("#login-error").textContent = "";
+      const response = await fetch("/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subscriberNo: document.querySelector("#subscriber").value.trim(),
+          password: document.querySelector("#password").value
+        })
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        showError("#login-error", body);
+        return;
+      }
+      state.token = body.accessToken;
+      state.name = body.fullName;
+      state.subscriber = body.subscriberNo;
+      state.history = [];
+      document.querySelector("#who-name").textContent = body.fullName;
+      document.querySelector("#who-number").textContent = body.subscriberNo;
+      showWelcome();
+      pending.classList.add("hidden");
+      loginCard.classList.add("hidden");
+      chatCard.classList.remove("hidden");
+      sessionBar.classList.remove("hidden");
+      document.querySelector("#message").focus();
+    }
+
+    document.querySelector("#login-btn").addEventListener("click", login);
+    document.querySelector("#password").addEventListener("keydown", (event) => {
+      if (event.key === "Enter") login();
+    });
+    document.querySelectorAll(".account").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelector("#subscriber").value = button.dataset.sub;
+        document.querySelector("#password").value = button.dataset.pass;
+        login();
+      });
+    });
+
+    document.querySelector("#logout-btn").addEventListener("click", () => {
+      state.token = "";
+      state.history = [];
+      chatCard.classList.add("hidden");
+      sessionBar.classList.add("hidden");
+      loginCard.classList.remove("hidden");
+    });
+
+    document.querySelector("#composer").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const input = document.querySelector("#message");
+      const text = input.value.trim();
+      if (!text || state.busy) return;
+      input.value = "";
+      ask(text);
+    });
+
+    function addMessage(role, text, trace) {
+      const welcome = log.querySelector(".welcome");
+      if (welcome) welcome.remove();
+      const wrap = document.createElement("div");
+      wrap.className = "msg " + role;
+      if (role === "assistant") {
+        const avatar = document.createElement("div");
+        avatar.className = "avatar";
+        avatar.textContent = "AI";
+        wrap.appendChild(avatar);
+      }
+      const inner = document.createElement("div");
+      inner.className = "bubble-wrap";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text;
+      inner.appendChild(bubble);
+      if (trace && trace.length) {
+        const box = document.createElement("div");
+        box.className = "trace";
+        const title = document.createElement("div");
+        title.className = "trace-title";
+        title.textContent = "AGENT TOOL EXECUTION";
+        box.appendChild(title);
+        trace.forEach((step) => {
+          const row = document.createElement("div");
+          row.className = "step";
+          const via = step.via === "mcp" ? "mcp" : step.via === "llm" ? "llm" : "gateway";
+          const label = via === "mcp" ? "MCP" : via === "llm" ? "LLM" : "GATEWAY";
+          const name = step.tool === "llm" ? "" : step.tool;
+          row.innerHTML =
+            '<div class="step-top"><span class="pill ' + via + '">' + label + "</span><span class=\"tool-name\">" +
+            esc(name) + "</span></div><pre>" + esc(formatTrace(step)) + "</pre>";
+          box.appendChild(row);
+        });
+        inner.appendChild(box);
+      }
+      wrap.appendChild(inner);
+      log.appendChild(wrap);
+      wrap.scrollIntoView({ block: "nearest" });
+      return wrap;
+    }
+
+    async function ask(text) {
+      if (state.busy) return;
+      setBusy(true);
+      addMessage("user", text);
+      const thinking = addMessage("assistant", "Checking");
+      thinking.classList.add("thinking");
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + state.token
+          },
+          body: JSON.stringify({ message: text, history: state.history })
+        });
+        const body = await response.json();
+        thinking.remove();
+        if (response.status === 401) {
+          document.querySelector("#logout-btn").click();
+          showError("#login-error", body);
+          return;
+        }
+        if (!response.ok) {
+          addMessage("assistant", typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail));
+          return;
+        }
+        addMessage("assistant", body.answer, body.trace);
+        state.history.push({ role: "user", content: text });
+        state.history.push({ role: "assistant", content: body.answer });
+        if (body.pendingPayment) {
+          const item = body.pendingPayment;
+          pending.textContent = "Pending " + item.amount + " USD for " + item.month + "/" + item.year + ". Reply CONFIRM to record it. Nothing has been paid yet.";
+          pending.classList.remove("hidden");
+        } else {
+          pending.classList.add("hidden");
+        }
+      } catch (error) {
+        thinking.remove();
+        addMessage("assistant", "The assistant could not be reached.");
+      } finally {
+        setBusy(false);
+      }
+    }
+  </script>
+</body>
+</html>

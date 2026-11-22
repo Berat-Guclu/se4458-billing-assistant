@@ -1,0 +1,9 @@
+billing-api
+............................                                             [100%]
+28 passed in 0.93s
+mcp-server
+......                                                                   [100%]
+6 passed in 0.01s
+agent
+...                                                                      [100%]
+3 passed in 0.01s
