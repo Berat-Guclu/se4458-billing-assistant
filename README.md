@@ -4,6 +4,18 @@ Conversational assistant for a fictitious mobile provider. The subscriber asks a
 
 This repository is individual coursework. Group 2 is the assigned topic, not a shared submission.
 
+## Demo
+
+The running system is on one EC2 instance.
+
+| What | URL |
+| --- | --- |
+| Chat | http://3.123.72.226:8080 |
+| Kong gateway | http://3.123.72.226:8088 |
+| Swagger | http://3.123.72.226:8088/docs |
+
+Sign in as `5551001` / `demo123`. The short walkthrough is [docs/demo.mp4](docs/demo.mp4): extra data price, the October bill, why October is higher than September, then payment after `CONFIRM`.
+
 ## Architecture
 
 ```mermaid
@@ -20,16 +32,16 @@ flowchart TD
 
 The LLM never calls the database or the gateway itself. The agent does.
 
-| Piece | Local URL |
-| --- | --- |
-| Chat UI | http://localhost:8080 |
-| API Gateway | http://localhost:8088 |
-| Kong admin | http://localhost:8001 |
-| Billing API, debug only | http://localhost:18000 |
-| Swagger through the gateway | http://localhost:8088/docs |
-| MCP server | http://localhost:8002/mcp |
-| MCP health | http://localhost:8002/health |
-| PostgreSQL | localhost:5433, database `billing`, user/password `billing` |
+| Piece | Deployed URL | On the EC2 itself |
+| --- | --- | --- |
+| Chat UI | http://3.123.72.226:8080 | http://localhost:8080 |
+| API Gateway (Kong) | http://3.123.72.226:8088 | http://localhost:8088 |
+| Swagger | http://3.123.72.226:8088/docs | http://localhost:8088/docs |
+| Kong admin | not public | http://localhost:8001 |
+| Billing API, debug only | not public | http://localhost:18000 |
+| MCP server | not public | http://localhost:8002/mcp |
+| MCP health | not public | http://localhost:8002/health |
+| PostgreSQL | not public | localhost:5433, database `billing`, user/password `billing` |
 
 ## Run it
 
@@ -46,7 +58,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open http://localhost:8080 and sign in as `5551001` / `demo123`.
+Open http://3.123.72.226:8080 and sign in as `5551001` / `demo123`. The same page is http://localhost:8080 when you are on the EC2.
 
 `gpt-4o-mini` is the low-cost default. A short demo is a handful of requests. Without `OPENAI_API_KEY` the REST API, gateway, MCP server, and tests still run. The chat returns a clear error instead of guessing from keywords.
 
@@ -102,7 +114,7 @@ Three retrieval checks, also covered by `mcp-server/tests/test_indexer.py`:
 The indexed file is the instructor document `MOB-BILLING-2026-01`. A match includes the document id `Mobile_Provider_Billing_Guide.md`, the section id, the heading, and the excerpt.
 
 ```bash
-curl -s http://localhost:8002/health
+curl -s http://127.0.0.1:8002/health
 ```
 
 ## REST API
@@ -170,12 +182,12 @@ The JWT secret in `gateway/kong.yml` must stay the same as `JWT_SECRET`. The dem
 Protected-route error, no token:
 
 ```bash
-curl -i "http://localhost:8088/api/v1/bills/detailed?subscriberNo=5551001&month=10&year=2025"
+curl -i "http://3.123.72.226:8088/api/v1/bills/detailed?subscriberNo=5551001&month=10&year=2025"
 ```
 
-Kong returns 401. A full scripted pass, including a duplicate payment, is `sh scripts/demo_api.sh`. That script calculates July 2023, which is outside the seeded 36 months, so the October demo bill stays unpaid.
+Kong returns 401. A full scripted pass, including a duplicate payment, is `BASE=http://3.123.72.226:8088 sh scripts/demo_api.sh`. That script calculates July 2023, which is outside the seeded 36 months, so the October demo bill stays unpaid.
 
-Direct port 18000 is only for debugging. Graded calls should use port 8088. Host ports 5433 and 18000 avoid a PostgreSQL or other service already bound on this machine.
+Direct port 18000 is only for debugging on the machine. Graded calls use http://3.123.72.226:8088. Host ports 5433 and 18000 are not open to the internet.
 
 ## Data model
 
@@ -239,7 +251,15 @@ The last successful local run is in `docs/test-evidence.txt`.
 
 ## Cloud deployment
 
-The running deployment in this repository is local Docker Compose: API, MCP, Kong, and PostgreSQL. That is the current deliverable. Moving the same four containers to AWS (RDS for PostgreSQL, ECS or App Runner for the API, MCP, and agent, and API Gateway or a Kong task in front of the API) is the next step and is not deployed yet.
+One EC2 instance in `eu-central-1` runs this Compose stack: the billing API, PostgreSQL, the MCP server, Kong, and the chat agent.
+
+| What | URL |
+| --- | --- |
+| Chat | http://3.123.72.226:8080 |
+| Kong, the API gateway | http://3.123.72.226:8088 |
+| Swagger | http://3.123.72.226:8088/docs |
+
+Sign in as `5551001` / `demo123`. The security group allows inbound 8080 and 8088. Postgres, Kong admin, the debug API port, and the MCP port stay on the instance.
 
 ## Repository map
 
@@ -248,5 +268,6 @@ The running deployment in this repository is local Docker Compose: API, MCP, Kon
 - `agent/` LLM tool loop, MCP client, chat page
 - `gateway/kong.yml` route map
 - `docker-compose.yml`
+- `docs/demo.mp4` short demonstration
 - `docs/openapi.json` exported API contract
 - `scripts/demo_api.sh` instructor reproduction steps
