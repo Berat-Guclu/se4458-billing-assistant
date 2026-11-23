@@ -13,21 +13,20 @@ flowchart TD
   agent --> mcpClient[MCP client]
   mcpClient <--> mcp[MCP server]
   mcp --> guide[Indexed billing guide]
-  agent --> gateway[Kong API Gateway]
+  agent --> gateway[AWS API Gateway]
   gateway --> api[Billing REST API]
   api --> db[(PostgreSQL)]
 ```
 
 The LLM never calls the database or the gateway itself. The agent does.
 
-| Piece | Local URL |
+| Piece | Where it runs |
 | --- | --- |
-| Chat UI | http://localhost:8080 |
-| API Gateway | http://localhost:8088 |
-| Kong admin | http://localhost:8001 |
+| Chat UI | http://localhost:8080, or http://3.123.72.226:8080 on the EC2 |
+| API Gateway | AWS HTTP API invoke URL, set as `GATEWAY_BASE_URL` |
 | Billing API, debug only | http://localhost:18000 |
-| Swagger through the gateway | http://localhost:8088/docs |
-| MCP server | http://localhost:8002/mcp |
+| Swagger | `<GATEWAY_BASE_URL>/docs` after the gateway is attached |
+| MCP server | http://localhost:8002/mcp. This path does not go through the gateway. |
 | MCP health | http://localhost:8002/health |
 | PostgreSQL | localhost:5433, database `billing`, user/password `billing` |
 
@@ -42,6 +41,8 @@ cp .env.example .env
 # Any OpenAI-compatible endpoint works:
 # OPENAI_BASE_URL=https://api.openai.com/v1
 # OPENAI_MODEL=gpt-4o-mini
+# On the EC2, point the agent at API Gateway:
+# GATEWAY_BASE_URL=https://<api-id>.execute-api.eu-central-1.amazonaws.com
 
 docker compose up --build
 ```
@@ -153,29 +154,31 @@ Seed usage rows may contain more than 10 minutes or 1 MB. They are historical to
 
 ## API Gateway
 
-Kong 3.8, DB-less, config in `gateway/kong.yml`. Every REST operation used by the agent is routed here. The MCP path is separate and does not go through Kong.
+AWS HTTP API in `eu-central-1`. Every REST operation used by the agent is routed here. The MCP path stays on the MCP server and does not go through this gateway.
 
-| Public route | Upstream | Gateway control |
-| --- | --- | --- |
-| `GET /health`, `/docs`, `/openapi.json`, `/redoc` | billing-api | none |
-| `POST /api/v1/auth/*` | billing-api | none |
-| `GET /api/v1/bills` | billing-api | 60 requests per minute per IP |
-| `GET /api/v1/bills/detailed` | billing-api | JWT (`iss` = `billing-key`) |
-| `POST /api/v1/bills/calculate` | billing-api | JWT |
-| `POST /api/v1/bills/pay` | billing-api | JWT |
-| `POST /api/v1/usage` | billing-api | JWT |
+The agent reads `GATEWAY_BASE_URL`. On the EC2 that value is the API Gateway invoke URL, for example `https://<api-id>.execute-api.eu-central-1.amazonaws.com`. If the variable is unset, Compose falls back to `http://billing-api:8000` so the stack still starts before the gateway exists. Graded calls use the invoke URL.
 
-The JWT secret in `gateway/kong.yml` must stay the same as `JWT_SECRET`. The demo value is `billing-demo-secret-key-please-change`. Tokens expire after 8 hours. HS256.
+Point the gateway integration at the billing API on port 18000 through a VPC Link and an internal load balancer. Leave 18000 closed to the public internet.
 
-Protected-route error, no token:
+| Route | Gateway control |
+| --- | --- |
+| `GET /health`, `/docs`, `/openapi.json`, `/redoc` | none |
+| `POST /api/v1/auth/login` | none |
+| `GET /api/v1/bills` | throttle 60 requests per minute |
+| `GET /api/v1/bills/detailed` | Lambda authorizer, JWT |
+| `POST /api/v1/bills/calculate` | Lambda authorizer, JWT |
+| `POST /api/v1/bills/pay` | Lambda authorizer, JWT |
+| `POST /api/v1/usage` | Lambda authorizer, JWT |
+
+The authorizer source is `gateway/authorizer.py`. It is one file, standard library only. Create a Python 3.12 Lambda from it, payload format 2.0, simple responses enabled. Set `JWT_SECRET` to `billing-demo-secret-key-please-change` and `JWT_ISSUER` to `billing-key`. That is the same HS256 secret the API uses to sign tokens. Tokens expire after 8 hours. A missing or invalid token returns `{"isAuthorized": false}`, which API Gateway turns into 401.
+
+Protected-route error, no token, after the invoke URL exists:
 
 ```bash
-curl -i "http://localhost:8088/api/v1/bills/detailed?subscriberNo=5551001&month=10&year=2025"
+curl -i "$GATEWAY_BASE_URL/api/v1/bills/detailed?subscriberNo=5551001&month=10&year=2025"
 ```
 
-Kong returns 401. A full scripted pass, including a duplicate payment, is `sh scripts/demo_api.sh`. That script calculates July 2023, which is outside the seeded 36 months, so the October demo bill stays unpaid.
-
-Direct port 18000 is only for debugging. Graded calls should use port 8088. Host ports 5433 and 18000 avoid a PostgreSQL or other service already bound on this machine.
+A full scripted pass, including a duplicate payment, is `BASE="$GATEWAY_BASE_URL" sh scripts/demo_api.sh`. That script calculates July 2023, which is outside the seeded 36 months, so the October demo bill stays unpaid. The default base in the script is `http://localhost:18000` and reaches the API container directly.
 
 ## Data model
 
@@ -239,14 +242,16 @@ The last successful local run is in `docs/test-evidence.txt`.
 
 ## Cloud deployment
 
-The running deployment in this repository is local Docker Compose: API, MCP, Kong, and PostgreSQL. That is the current deliverable. Moving the same four containers to AWS (RDS for PostgreSQL, ECS or App Runner for the API, MCP, and agent, and API Gateway or a Kong task in front of the API) is the next step and is not deployed yet.
+One EC2 in `eu-central-1` runs the Compose stack: billing API, MCP, the agent, and PostgreSQL. The chat is http://3.123.72.226:8080. Sign in with `5551001` / `demo123`.
+
+REST calls are meant to enter through the AWS HTTP API described above. Set `GATEWAY_BASE_URL` on that machine to the invoke URL, then `docker compose up -d`. Until that variable is set, the agent on the box calls the billing API over the Docker network.
 
 ## Repository map
 
 - `billing-api/` versioned REST API, pricing, JWT, seed data, pytest
 - `mcp-server/` MCP SDK server and the billing guide
 - `agent/` LLM tool loop, MCP client, chat page
-- `gateway/kong.yml` route map
+- `gateway/authorizer.py` AWS API Gateway Lambda authorizer
 - `docker-compose.yml`
 - `docs/openapi.json` exported API contract
 - `scripts/demo_api.sh` instructor reproduction steps
