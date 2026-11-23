@@ -37,10 +37,8 @@ app = FastAPI(
         "Internet: $50 up to 20 GB, then $10 per started additional 10 GB block."
     ),
     servers=[
-        {
-            "url": "/",
-            "description": "This host. Graded calls use the AWS API Gateway invoke URL.",
-        },
+        {"url": "http://localhost:8088", "description": "API Gateway"},
+        {"url": "http://localhost:18000", "description": "Billing API direct (debug only)"},
     ],
     lifespan=lifespan,
     redirect_slashes=False,

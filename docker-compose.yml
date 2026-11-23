@@ -35,6 +35,28 @@ services:
       timeout: 5s
       retries: 20
 
+  kong:
+    image: kong:3.8
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_LISTEN: "0.0.0.0:8000"
+      KONG_ADMIN_LISTEN: "0.0.0.0:8001"
+      KONG_NGINX_WORKER_PROCESSES: "1"
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_LOG_LEVEL: info
+    volumes:
+      - ./gateway/kong.yml:/kong/kong.yml:ro
+    depends_on:
+      billing-api:
+        condition: service_healthy
+    ports:
+      - "8088:8000"
+      - "8001:8001"
+
   mcp-server:
     build: ./mcp-server
     environment:
@@ -45,7 +67,7 @@ services:
   agent:
     build: ./agent
     environment:
-      GATEWAY_BASE_URL: ${GATEWAY_BASE_URL:-http://billing-api:8000}
+      GATEWAY_BASE_URL: http://kong:8000
       MCP_URL: http://mcp-server:8000/mcp
       JWT_SECRET: billing-demo-secret-key-please-change
       JWT_ISSUER: billing-key
@@ -53,10 +75,8 @@ services:
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     depends_on:
-      billing-api:
-        condition: service_healthy
-      mcp-server:
-        condition: service_started
+      - kong
+      - mcp-server
     ports:
       - "8080:8080"
 

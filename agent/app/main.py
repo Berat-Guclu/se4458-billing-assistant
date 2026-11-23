@@ -32,7 +32,7 @@ class ChatIn(BaseModel):
 
 
 def gateway_base() -> str:
-    return os.getenv("GATEWAY_BASE_URL", "http://billing-api:8000").rstrip("/")
+    return os.getenv("GATEWAY_BASE_URL", "http://localhost:8088").rstrip("/")
 
 
 def decode_identity(authorization: str | None) -> dict:

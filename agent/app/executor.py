@@ -23,7 +23,7 @@ class ToolContext:
 
 
 def gateway_base() -> str:
-    return os.getenv("GATEWAY_BASE_URL", "http://billing-api:8000").rstrip("/")
+    return os.getenv("GATEWAY_BASE_URL", "http://localhost:8088").rstrip("/")
 
 
 async def execute_tool(name: str, arguments: dict | None, ctx: ToolContext) -> str:

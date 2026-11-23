@@ -1,9 +1,7 @@
 #!/bin/sh
-# Reproduce the billing API through the gateway.
-# Graded calls: BASE=https://<api-id>.execute-api.eu-central-1.amazonaws.com
-# Local debug against the API container, skipping the gateway: the default below.
+# Reproduce the billing API through the gateway at http://localhost:8088.
 set -eu
-BASE="${BASE:-http://localhost:18000}"
+BASE="${BASE:-http://localhost:8088}"
 
 echo "1. Public query, October 2025, subscriber 5551001"
 curl -sS "$BASE/api/v1/bills?subscriberNo=5551001&month=10&year=2025"
