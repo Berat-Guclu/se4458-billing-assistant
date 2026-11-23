@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+
+DOCUMENT_ID = "Mobile_Provider_Billing_Guide.md"
 
 TOKEN = re.compile(r"[a-z0-9]+")
 HEADING = re.compile(r"^(#{1,3})\s+(.+?)\s*$", re.MULTILINE)
@@ -83,7 +86,9 @@ class BillingIndex:
         scored.sort(key=lambda item: (-item[0], item[1].section))
         return [
             {
+                "document": DOCUMENT_ID,
                 "section": chunk.section,
+                "heading": heading_of(chunk),
                 "title": chunk.title,
                 "excerpt": chunk.excerpt,
                 "score": weight,
@@ -95,13 +100,20 @@ class BillingIndex:
         if not query or not query.strip():
             return "No query was provided."
         hits = self.search(query, limit=limit)
+        payload = {
+            "document": DOCUMENT_ID,
+            "matches": [
+                {
+                    "section": hit["section"],
+                    "heading": hit["heading"],
+                    "text": hit["excerpt"],
+                }
+                for hit in hits
+            ],
+        }
         if not hits:
-            return "No matching billing policy section was found."
-        blocks = [
-            f"Section {hit['section']}: {hit['title']}\n{hit['excerpt']}"
-            for hit in hits
-        ]
-        return "\n\n".join(blocks)
+            payload["message"] = "No matching billing policy section was found."
+        return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 def split_markdown(markdown: str) -> list[Chunk]:
@@ -118,6 +130,14 @@ def split_markdown(markdown: str) -> list[Chunk]:
         section = number.group(1) if number else title
         chunks.append(Chunk(section=section, title=title, body=body))
     return chunks
+
+
+def heading_of(chunk: Chunk) -> str:
+    title = chunk.title.strip()
+    prefix = f"{chunk.section} "
+    if title.startswith(prefix):
+        return title[len(prefix):].strip()
+    return title
 
 
 def tokenize(query: str) -> list[str]:

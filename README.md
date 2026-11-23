@@ -73,7 +73,7 @@ September 2025 is 400 minutes and 8 GB, so the internet plan only: $50, paid by 
 Ask these after signing in as 5551001. The screen shows the tool trace.
 
 1. MCP only: `How much does extra internet cost?`  
-   Tool: `search_billing_documentation`. Expected section: **3.2**. 35 GB example is $70.
+   Tool: `search_billing_documentation`. Expected sections: **8.1** and **3.2**. 35 GB in section 3.2 is $70.
 2. REST only: `What is my October bill?`  
    Tool: `query_bill` through the gateway. Expected: total $70, paid $0, remaining $70, status `UNPAID`. The year defaults to 2025 when the user omits it.
 3. Both: `Why is my October bill higher than September?`  
@@ -89,15 +89,17 @@ Document: `mcp-server/docs/Mobile_Provider_Billing_Guide.md`.
 
 The server is the official MCP Python SDK (`mcp` 2.3, `MCPServer`) on Streamable HTTP at `/mcp`. The tool name is `search_billing_documentation(query)`.
 
-At process start the guide is split on markdown headings. Each chunk keeps its section number, title, and body. Later queries only score that index. They do not rebuild it. Scoring is case-insensitive full text: word matches in the body, a higher weight on the title, and a bonus when the query phrase appears. Embeddings are not used. The top three excerpts are returned with section references.
+At process start the guide is split on markdown headings. Each chunk keeps its section number, heading, and body. Later queries only score that index. They do not rebuild it. Scoring is case-insensitive full text: word matches in the body, a higher weight on the title, and a bonus when the query phrase appears. Embeddings are not used. The top three excerpts are returned as JSON with the document id, section id, heading, and text.
 
 Three retrieval checks, also covered by `mcp-server/tests/test_indexer.py`:
 
 | Query | Section |
 | --- | --- |
-| How much does extra internet cost? | 3.2 Extra data charges |
-| partial payment rules | 5. Partial payments |
-| late payment fee | 7. Late payments |
+| How much does extra internet cost? | 8.1 and 3.2 Additional internet blocks. 35 GB is $70. |
+| partial payment | 5.1 Full and partial payments |
+| late payment | 6.2 Late payment reminder. The reminder does not add a fee. |
+
+The indexed file is the instructor document `MOB-BILLING-2026-01`. A match includes the document id `Mobile_Provider_Billing_Guide.md`, the section id, the heading, and the excerpt.
 
 ```bash
 curl -s http://localhost:8002/health
